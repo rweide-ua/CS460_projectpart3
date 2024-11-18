@@ -1,88 +1,16 @@
 # Homework 4 ROS2 Notes
 
+## Miata Group for HW4 CS460
+Anastasia Spencer, Lilly Eide, Jeongbin Son
 
-### TO INSTALL PACKAGE FOR ASSIGNMENT 
+### The Miata Algorithm
 
-1. Set up environment variables for ROS. Make sure to replace '/home/rpi/shared' with your own shared folder location
-<pre>
-source /opt/ros/humble/setup.bash
-</pre>
-Also do any Windows or Mac specific setup
+Our algorithm uses a rudimentary "wall-follow" algorithm.
+At the start, the bot moves forward until it finds a wall. Once it finds a wall, it will turn until the right sensor readings from the LIDAR sensor no longer increases, meaning the bot is facing along the wall. Once this occurs, the bot is considered to be following the wall.
+From here, the bot moves forward. If the distance from the wall becomes too small, the bot will turn away from the wall and continue moving forward.
+If the distance from the wall becomes too big, it will turn back towards the wall to get closer and continue moving forward.
 
-For example in Mac...
-<pre>
-export WEBOTS_HOME=/Applications/Webots.app
-python3 local_simulation_server.py
-</pre>
+If the bot reads the same 10 values for the front and side values, it will consider itself to be stalled, and will try to get out of the stall.
 
-For example in windows...
-<pre>
-export WEBOTS_HOME=/mnt/c/Program\ Files/Webots
-</pre>
-
-2. Fork your own repository of f23_robotics (using web interface)
-
-3. Clone your fork
-<pre>
-git clone <your github url for this repository>
-</pre>
-
-4. Make the package (for python, it really just installs the files
-<pre>
-cd f24_robotics
-colcon build
-</pre>
-
-5. Set up variables to use the package you just created
-<pre>
-source install/setup.bash
-</pre>
-
-6. Start webots simulation with connect back to ROS in the virtual machine
-<pre>
-ros2 launch miata_hw4 f23_robotics_1_launch.py
-</pre>
-
-
-### TEST THE CONNECTION BETWEEN ROS2 AND WEBOTS
-
-Test the connection between webots and ROS, use a ROS based ASCII keyboard to move the simulated robot in Webots
-
-1. Open another terminal
-
-2. Redo the source commands (you can add to your bash to execute it automatically each time) 
-<pre>
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-</pre>
-
-3. Run the ROS-based keyboard
-<pre>
-ros2 run teleop_twist_keyboard teleop_twist_keyboard
-</pre>
-
-
-### TO VISUALIZE LASER DATA
-
-1. Open another terminal
-
-2. Redo the source commands (you can add to your bash to execute it automatically each time) 
-<pre>
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-</pre>
-
-3. Run the ROS-based keyboard
-<pre>
-ros2 run teleop_twist_keyboard teleop_twist_keyboard
-</pre>
-<pre>
-  rviz2
-</pre>
-
-### RUN SAMPLE CONTROLLER
-
-<pre>
-ros2 run miata_hw4 miata_hw4
-</pre>
-
+To be implemented soon:
+After moving a set distance, the bot will stop in place and turn around 360 degrees to scan for Apriltags.

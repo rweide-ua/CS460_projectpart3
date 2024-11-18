@@ -61,7 +61,7 @@ class RandomWalk(Node):
         # Assume 360 range measurements
         for reading in scan:
             if reading == float('Inf'):
-                self.scan_cleaned.append(3.5)
+                self.scan_cleaned.append(5.0)
             elif math.isnan(reading):
                 self.scan_cleaned.append(0.0)
             else:
@@ -163,13 +163,15 @@ class WallFollow(Node):
         # trial_number = 6
         # starting_pos = "area1"
         # print(os.getcwd())
-        # self.csv_file = open(f'miata_hw4/miata_hw4/csv/{starting_pos}/trial{trial_number}.csv', mode='a', newline='')
+        # self.csv_file = open(f'webots_ros2_homework1_python/webots_ros2_homework1_python/csv/{starting_pos}/trial{trial_number}.csv', mode='a', newline='')
         # self.csv_writer = csv.writer(self.csv_file)
         
         # Write header
         # self.csv_writer.writerow(['X', 'Y'])
 
         self.front_scans = []
+        self.left_scans = []
+        self.right_scans = []
 
         self.laser_forward = 0
         self.odom_data = 0
@@ -181,6 +183,8 @@ class WallFollow(Node):
         self.following_wall = False
 
         self.starting_point = None
+        self.last_rotation_position = None
+        self.distance_since_last_rotation = 0
         self.farthest_distance = 0
 
     # Reads scan and cleans it
@@ -189,11 +193,11 @@ class WallFollow(Node):
         scan = msg1.ranges
         self.scan_cleaned = []
        
-        self.get_logger().info('scan: "%s"' % scan)
+        # self.get_logger().info('scan: "%s"' % scan)
         # Assume 360 range measurements
         for reading in scan:
             if reading == float(0.0):
-                self.scan_cleaned.append(3.5)
+                self.scan_cleaned.append(5.0)
             elif math.isnan(reading):
                 self.scan_cleaned.append(0.0)
             else:
@@ -216,10 +220,19 @@ class WallFollow(Node):
         if self.pose_saved == '':
             self.pose_saved = position
             self.starting_point = position
-        #else:
-            #distance_from_start = math.sqrt((posx - self.starting_point.x)**2 + (posy - self.starting_point.y)**2)
-            #if distance_from_start > self.farthest_distance:
-                #self.farthest_distance = distance_from_start
+            self.last_rotation_position = position
+        else:
+            # distance_from_start = math.sqrt((posx - self.starting_point.x)**2 + (posy - self.starting_point.y)**2)
+            # if distance_from_start > self.farthest_distance:
+            #     self.farthest_distance = distance_from_start
+            self.distance_since_last_rotation = math.sqrt((posx - self.last_rotation_position.x)**2 + (posy - self.last_rotation_position.y)**2)
+            # If distance from our last rotation is greater than or equal to some value (going with 0.2m for now), rotate
+            if (self.turtlebot_moving and self.distance_since_last_rotation >= 0.2):
+                # Do rotation
+                self.get_logger().info('START ROTATION HERE!')
+                self.distance_since_last_rotation = 0
+                self.last_rotation_position = position
+
 
         #self.get_logger().info('Farthest distance: {}'.format(self.farthest_distance))
         #if (diffX < 0.0001 and diffY < 0.0001):
@@ -249,24 +262,49 @@ class WallFollow(Node):
         front_lidar_min = min(front_lidar_left, front_lidar_right)
         #front_lidar_min = min(self.scan_cleaned[LEFT_FRONT_INDEX:RIGHT_FRONT_INDEX])
         self.front_scans.append(front_lidar_min)
+        self.left_scans.append(left_lidar_min)
+        self.right_scans.append(right_lidar_min)
+
         if (len(self.front_scans) > 10):
             self.front_scans.pop(0)
-        
-        # If last 10 scans have same distance of something in front, register as stuck
+
+        if (len(self.left_scans) > 10):
+            self.left_scans.pop(0)
+
+        if (len(self.right_scans) > 10):
+            self.right_scans.pop(0)
+
+        # If last 10 scans have same distance of something in front and sides, register as stuck
         front_diff_threshold = 0.01
-        scans_sum = 0
+        front_scans_sum = 0
         for scan in self.front_scans:
-            scans_sum += scan
-        scans_sum /= 10
+            front_scans_sum += scan
+        front_scans_sum /= 10
+
+        left_diff_threshold = 0.01
+        left_scans_sum = 0
+        for scan in self.left_scans:
+            left_scans_sum += scan
+        left_scans_sum /= 10
+
+        right_diff_threshold = 0.01
+        right_scans_sum = 0
+        for scan in self.right_scans:
+            right_scans_sum += scan
+        right_scans_sum /= 10
         
+        # scans_sum = (front_scans_sum + left_scans_sum + right_scans_sum) / 3
+
+        # total_scans_diff_threshold = 0.01
         # If number of scans is equal to 10, sum of scans minus the first scan is less than threshold, and latest scan isn't infinity, register as stuck
-        if ((len(self.front_scans) == 10) and (abs(scans_sum - self.front_scans[0]) < front_diff_threshold) and (front_lidar_min != 3.5)):
-            self.cmd.linear.x = 0.0 
-            self.cmd.angular.z = 0.0 
-            self.publisher_.publish(self.cmd)
-            self.turtlebot_moving = False
-            self.stall = True
-            self.get_logger().info('Stuck on something, stopping')
+        if (((len(self.front_scans) == 10) and (len(self.left_scans) == 10) and (len(self.right_scans) == 10))):
+            if ((abs(front_scans_sum - self.front_scans[0]) < front_diff_threshold) and (abs(left_scans_sum - self.left_scans[0]) < left_diff_threshold) and (abs(right_scans_sum - self.right_scans[0]) < right_diff_threshold)):
+                self.cmd.linear.x = 0.0 
+                self.cmd.angular.z = 0.0 
+                self.publisher_.publish(self.cmd)
+                self.turtlebot_moving = False
+                self.stall = True
+                self.get_logger().info('Stuck on something, stopping')
 
         #self.get_logger().info('left scan slice: "%s"'%  min(left_lidar_samples))
         #self.get_logger().info('front scan slice: "%s"'%  min(front_lidar_samples))
@@ -277,9 +315,19 @@ class WallFollow(Node):
         # At start, move forwards until wall is encountered
 
         # Rotate and reverse slightly until hopefully out of stall
-        if self.stall:
+        # If at start of robot, start moving forward
+        if ((front_lidar_min > SAFE_STOP_DISTANCE) and not self.following_wall):
+            self.cmd.linear.x = 0.5
+            self.cmd.angular.z = 0.0
+            self.publisher_.publish(self.cmd)
+            self.get_logger().info('Moving forward at start?')
+            if (front_lidar_min < 5.0):
+                if (right_lidar_min < WALL_DISTANCE or front_lidar_min < WALL_DISTANCE):
+                    self.following_wall = True
+            self.turtlebot_moving = True
+        elif self.stall:
             self.cmd.linear.x = -0.07 
-            self.cmd.angular.z = 0.5 
+            self.cmd.angular.z = 0.6 
             self.publisher_.publish(self.cmd)
             self.turtlebot_moving = True
             self.following_wall = False
@@ -297,41 +345,33 @@ class WallFollow(Node):
                 return
         # If object in way, just turn left until we can move forward
         elif front_lidar_min < 0.9 * LIDAR_AVOID_DISTANCE:
-                self.cmd.linear.x = 0.07 
-                self.cmd.angular.z = 0.3
-                self.publisher_.publish(self.cmd)
-                self.get_logger().info('Turning')
-                self.turtlebot_moving = True
-                # Once wall is to right, mark the bot as following the wall
-                if right_lidar_min < LIDAR_AVOID_DISTANCE:
-                    self.following_wall = True
+            self.cmd.linear.x = 0.07 
+            self.cmd.angular.z = 0.3
+            self.publisher_.publish(self.cmd)
+            self.get_logger().info('Turning')
+            self.turtlebot_moving = True
+            # Once wall is to right, mark the bot as following the wall
+            if right_lidar_min < LIDAR_AVOID_DISTANCE:
+                self.following_wall = True
         # Once the bot is following the wall, adjust left and right movement to ensure we stay close to wall
         elif self.following_wall:
             if right_lidar_min < WALL_DISTANCE:
-                self.cmd.linear.x = 0.05
+                self.cmd.linear.x = 0.1
                 self.cmd.angular.z = 0.4
                 self.publisher_.publish(self.cmd)
                 self.get_logger().info('Turning left away from wall')
-            elif right_lidar_min > 2 * WALL_DISTANCE:
+            elif right_lidar_min > 4 * WALL_DISTANCE:
                 # Sanity check
-                self.cmd.linear.x = 0.05
+                self.cmd.linear.x = 0.1
                 self.cmd.angular.z = -0.4
                 self.publisher_.publish(self.cmd)
                 self.get_logger().info('Turning right towards wall')
             else:
-                self.cmd.linear.x = 0.3
+                self.cmd.linear.x = 0.4
                 self.cmd.angular.z = 0.0
                 self.publisher_.publish(self.cmd)
                 self.get_logger().info('Going straight alongside wall')
             self.get_logger().info('Following wall')
-            self.turtlebot_moving = True
-        else:
-            self.cmd.linear.x = 0.3
-            self.cmd.angular.z = 0.0
-            self.publisher_.publish(self.cmd)
-            self.get_logger().info('Moving forward at start?')
-            if right_lidar_min < LIDAR_AVOID_DISTANCE:
-                self.following_wall = True
             self.turtlebot_moving = True
             
 
@@ -340,7 +380,7 @@ class WallFollow(Node):
                                str(self.odom_data))
         if self.stall == True:
            self.get_logger().info('Stall reported')
-        
+        self.get_logger().info('LENGTH OF FRONT SCANS: %s' % len(self.front_scans))
         # Display the message on the console
         self.get_logger().info('Publishing: "%s"' % self.cmd)    
 
