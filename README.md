@@ -12,5 +12,4 @@ If the distance from the wall becomes too big, it will turn back towards the wal
 
 If the bot reads the same 10 values for the front and side values, it will consider itself to be stalled, and will try to get out of the stall.
 
-To be implemented soon:
-After moving a set distance, the bot will stop in place and turn around 360 degrees to scan for Apriltags.
+Doing this wall follow creates snake like behavior allowing for the robot to scan all tags found on the following wall.
