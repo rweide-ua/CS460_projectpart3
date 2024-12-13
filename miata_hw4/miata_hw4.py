@@ -429,10 +429,7 @@ class WallFollow(Node):
         
         left_lidar_min = min(self.scan_cleaned[LEFT_SIDE_INDEX:LEFT_FRONT_INDEX])
         right_lidar_min = min(self.scan_cleaned[RIGHT_FRONT_INDEX:RIGHT_SIDE_INDEX])
-        #front_lidar_min = min(self.scan_cleaned[0:30], self.scan_cleaned[330:359])
-        front_lidar_left = min(self.scan_cleaned[0:30])
-        front_lidar_right = min(self.scan_cleaned[330:])
-        front_lidar_min = min(front_lidar_left, front_lidar_right)
+        front_lidar_min = min(self.scan_cleaned[LEFT_FRONT_INDEX:RIGHT_FRONT_INDEX])
         #front_lidar_min = left_lidar_min
 
         #self.get_logger().info('left scan slice: "%s"'%  min(left_lidar_samples))
